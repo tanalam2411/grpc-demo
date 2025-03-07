@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+option go_package = "github.com/tanalam2411/grpc-demo/protogen/basic";
+// option go_package = "github.com/tanalam2411/grpc-demo/protogen/basic";package-name # in this case it will use "package-name" instead of basic
+
+message Hello {
+  string name = 1;
+  uint32 obsolete_field = 2 [deprecated = true];
+}

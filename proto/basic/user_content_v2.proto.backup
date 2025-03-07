@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+option go_package = "github.com/tanalam2411/grpc-demo/protogen/basic";
+
+message UserContent {
+  uint32 user_content_id = 1 [json_name = "user_content_id"];
+  string slug = 2;
+  string title = 3;
+  string html_content = 4 [json_name = "html_content"];
+  uint32 author_id = 5 [json_name = "author_id"];
+  string category = 6;
+}
+
+
+
+//   string sub_category = 3 [json_name = "sub_category"];
+
+// make build
+// rm -fR ./protogen
+// protoc --go_opt=module=github.com/tanalam2411/grpc-demo --go_out=. \
+//         ./proto/basic/*.proto \
+//         ./proto/dummy/*.proto \
+//         ./proto/jobsearch/*.proto \
+
+// proto/basic/user_content.proto:6:12: Field "sub_category" uses reserved number 3.
+// proto/basic/user_content.proto:6:12: Suggested field numbers for UserContent: 7
+// make: *** [protoc] Error 1
+
+
+// ---
+// After reserved 3, 5 when called function in log Print, it prints 3 and 5 also but protojson ignores import
+// ❯ make run
+// go run main.go
+// 00:28:40 Read V1
+// 00:28:40 user_content_id:1001  slug:"/this-is-v1"  html_content:"<p>Dummy para</p>"  3:"10 Strongest People"  5:99
+// 00:28:40 {"user_content_id":1001, "slug":"/this-is-v1", "html_content":"<p>Dummy para</p>"}
+// 00:28:40 
+// 00:28:40 Read V2
+// 00:28:40 user_content_id:1002  slug:"/this-is-v2"  html_content:"<p>Dummy para</p>"  category:"News"  3:"10 Strongest People"  5:99
+// 00:28:40 {"user_content_id":1002, "slug":"/this-is-v2", "html_content":"<p>Dummy para</p>", "category":"News"}
+// 00:28:40
