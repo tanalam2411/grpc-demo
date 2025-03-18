@@ -33,3 +33,12 @@
 - Real time analytics, take action based on certain data
 - Real time collaboration
 - Data collection from multiple IoT devices
+
+
+
+---
+
+```shell
+wget https://raw.githubusercontent.com/googleapis/googleapis/refs/heads/master/google/type/date.proto
+
+```
