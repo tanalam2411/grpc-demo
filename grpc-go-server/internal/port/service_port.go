@@ -17,4 +17,5 @@ type BankServicePort interface {
 	FindExchangeRate(fromCur string, toCur string, ts time.Time) float64
 	CreateTransaction(acct string, t bank.Transaction) (uuid.UUID, error)
 	CalculateTransactionSummary(tcur *bank.TransactionSummary, trans bank.Transaction) error
+	Transfer(tt bank.TransferTransaction) (uuid.UUID, bool, error)
 }

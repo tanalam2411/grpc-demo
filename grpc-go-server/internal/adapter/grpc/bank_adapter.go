@@ -60,35 +60,34 @@ func (a *GrpcAdapter) FetchExchangeRates(req *bank.ExchangeRateRequest,
 	}
 }
 
-
 func toTime(dt *datetime.DateTime) (time.Time, error) {
 	if dt == nil {
 		now := time.Now()
 
 		dt = &datetime.DateTime{
-			Year: int32(now.Year()),
-			Month: int32(now.Month()),
-			Day: int32(now.Day()),
-			Hours: int32(now.Hour()),
+			Year:    int32(now.Year()),
+			Month:   int32(now.Month()),
+			Day:     int32(now.Day()),
+			Hours:   int32(now.Hour()),
 			Minutes: int32(now.Minute()),
 			Seconds: int32(now.Second()),
-			Nanos: int32(now.Nanosecond()),
+			Nanos:   int32(now.Nanosecond()),
 		}
 	}
 
 	res := time.Date(int(dt.Year), time.Month(dt.Month), int(dt.Day), int(dt.Hours),
 		int(dt.Minutes), int(dt.Seconds), int(dt.Nanos), time.UTC)
-	
-		return res, nil
+
+	return res, nil
 }
 
 func (a *GrpcAdapter) SummarizeTransactions(stream grpc.ClientStreamingServer[bank.Transaction, bank.TransactionSummary]) error {
 
 	tsum := dbank.TransactionSummary{
 		SummaryOnDate: time.Now(),
-		SumIn: 0,
-		SumOut: 0,
-		SumTotal: 0,
+		SumIn:         0,
+		SumOut:        0,
+		SumTotal:      0,
 	}
 
 	acct := ""
@@ -96,16 +95,16 @@ func (a *GrpcAdapter) SummarizeTransactions(stream grpc.ClientStreamingServer[ba
 	for {
 		req, err := stream.Recv()
 
-		if err == io.EOF{
+		if err == io.EOF {
 			res := bank.TransactionSummary{
 				AccountNumber: acct,
-				SumAmountIn: tsum.SumIn,
-				SumAmountOut: tsum.SumOut,
-				SumTotal: tsum.SumTotal,
+				SumAmountIn:   tsum.SumIn,
+				SumAmountOut:  tsum.SumOut,
+				SumTotal:      tsum.SumTotal,
 				TransactionDate: &date.Date{
-					Year: int32(tsum.SummaryOnDate.Year()),
+					Year:  int32(tsum.SummaryOnDate.Year()),
 					Month: int32(tsum.SummaryOnDate.Month()),
-					Day: int32(tsum.SummaryOnDate.Day()),
+					Day:   int32(tsum.SummaryOnDate.Day()),
 				},
 			}
 
@@ -119,7 +118,7 @@ func (a *GrpcAdapter) SummarizeTransactions(stream grpc.ClientStreamingServer[ba
 		acct = req.AccountNumber
 		ts, err := toTime(req.Timestamp)
 
-		if err != nil{
+		if err != nil {
 			log.Fatalf("Error while parsing timestamp %v: %v", req.Timestamp, err)
 		}
 
@@ -132,8 +131,8 @@ func (a *GrpcAdapter) SummarizeTransactions(stream grpc.ClientStreamingServer[ba
 		}
 
 		tcur := dbank.Transaction{
-			Amount: req.Amount,
-			Timestamp: ts,
+			Amount:          req.Amount,
+			Timestamp:       ts,
 			TransactionType: ttype,
 		}
 
@@ -145,8 +144,80 @@ func (a *GrpcAdapter) SummarizeTransactions(stream grpc.ClientStreamingServer[ba
 
 		err = a.bankService.CalculateTransactionSummary(&tsum, tcur)
 
-		if err != nil{
+		if err != nil {
 			return err
+		}
+	}
+}
+
+
+func currentDatetime() *datetime.DateTime {
+	now := time.Now()
+
+	return &datetime.DateTime{
+		Year:       int32(now.Year()),
+		Month:      int32(now.Month()),
+		Day:        int32(now.Day()),
+		Hours:      int32(now.Hour()),
+		Minutes:    int32(now.Minute()),
+		Seconds:    int32(now.Second()),
+		Nanos:      int32(now.Second()),
+		TimeOffset: &datetime.DateTime_UtcOffset{},
+	}
+}
+
+func (a *GrpcAdapter) 	TransferMultiple(stream grpc.BidiStreamingServer[bank.TransferRequest, bank.TransferResponse]) error {
+
+	context := stream.Context()
+
+	for {
+		select {
+		case <-context.Done():
+			log.Println("Client cancelled stream")
+			return nil
+		default:
+			req, err := stream.Recv()
+
+			if err == io.EOF{
+				return nil
+			}
+
+			if err != nil {
+				log.Fatalln("Error while reading from client : ", err)
+			}
+
+			tt := dbank.TransferTransaction{
+				FromAccountNumber: req.FromAccountNumber,
+				ToAccountNumber: req.ToAccountNumber,
+				Currency: req.Currency,
+				Amount: req.Amount,
+			}
+
+			_, transferSuccess, err := a.bankService.Transfer(tt)
+
+			if err != nil{
+				return err
+			}
+
+			res := bank.TransferResponse{
+				FromAccountNumber: req.FromAccountNumber,
+				ToAccountNumber: req.ToAccountNumber,
+				Currency: req.Currency,
+				Amount: req.Amount,
+				Timestamp: currentDatetime(),
+			}
+
+			if transferSuccess {
+				res.Status = bank.TransferStatus_TRANSFER_STATUS_SUCCESS
+			} else {
+				res.Status = bank.TransferStatus_TRANSFER_STATUS_FAILED
+			}
+
+			err = stream.Send(&res)
+
+			if err != nil {
+				log.Fatalln("Error while sending response to client : ", err)
+			}
 		}
 	}
 }

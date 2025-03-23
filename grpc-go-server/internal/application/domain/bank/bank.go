@@ -27,8 +27,14 @@ type Transaction struct {
 
 type TransactionSummary struct {
 	SummaryOnDate time.Time
-	SumIn float64
-	SumOut float64
-	SumTotal float64
+	SumIn         float64
+	SumOut        float64
+	SumTotal      float64
 }
 
+type TransferTransaction struct {
+	FromAccountNumber string
+	ToAccountNumber   string
+	Currency          string
+	Amount            float64
+}

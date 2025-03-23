@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/tanalam2411/grpc-demo/internal/adapter/database"
-	"github.com/tanalam2411/grpc-demo/internal/application/domain/bank"
+	db "github.com/tanalam2411/grpc-demo/internal/adapter/database"
+	dbank "github.com/tanalam2411/grpc-demo/internal/application/domain/bank"
 	"github.com/tanalam2411/grpc-demo/internal/port"
 )
 
@@ -31,11 +31,11 @@ func (s *BankService) FindCurrentBalance(acct string) float64 {
 	return bankAccount.CurrentBalance
 }
 
-func (s *BankService) CreateExchangeRate(r bank.ExchangeRate) (uuid.UUID, error) {
+func (s *BankService) CreateExchangeRate(r dbank.ExchangeRate) (uuid.UUID, error) {
 	newUuid := uuid.New()
 	now := time.Now()
 
-	exchangeRateOrm := database.BankExchangeRateOrm{
+	exchangeRateOrm := db.BankExchangeRateOrm{
 		ExchangeRateUuid:   newUuid,
 		FromCurrency:       r.FromCurrency,
 		ToCurrency:         r.ToCurrency,
@@ -59,9 +59,7 @@ func (s *BankService) FindExchangeRate(fromCur string, toCur string, ts time.Tim
 	return float64(exchangeRate.Rate)
 }
 
-
-
-func (s *BankService) CreateTransaction(acct string, t bank.Transaction) (uuid.UUID, error){
+func (s *BankService) CreateTransaction(acct string, t dbank.Transaction) (uuid.UUID, error) {
 	newUuid := uuid.New()
 	now := time.Now()
 
@@ -72,15 +70,15 @@ func (s *BankService) CreateTransaction(acct string, t bank.Transaction) (uuid.U
 		return uuid.Nil, err
 	}
 
-	transactionOrm := database.BankTransactionOrm{
-		TransactionUuid: newUuid,
-		AccountUuid: bankAccountOrm.AccountUuid,
+	transactionOrm := db.BankTransactionOrm{
+		TransactionUuid:      newUuid,
+		AccountUuid:          bankAccountOrm.AccountUuid,
 		TransactionTimestamp: now,
-		Amount: t.Amount,
-		TransactionType: t.TransactionType,
-		Notes: t.Notes,
-		CreatedAt: now,
-		UpdatedAt: now,
+		Amount:               t.Amount,
+		TransactionType:      t.TransactionType,
+		Notes:                t.Notes,
+		CreatedAt:            now,
+		UpdatedAt:            now,
 	}
 
 	savedUuid, err := s.db.CreateTransaction(bankAccountOrm, transactionOrm)
@@ -88,13 +86,12 @@ func (s *BankService) CreateTransaction(acct string, t bank.Transaction) (uuid.U
 	return savedUuid, err
 }
 
-
-func (s *BankService) CalculateTransactionSummary(tcur *bank.TransactionSummary, trans bank.Transaction) error {
+func (s *BankService) CalculateTransactionSummary(tcur *dbank.TransactionSummary, trans dbank.Transaction) error {
 
 	switch trans.TransactionType {
-	case bank.TransactionTypeIn:
+	case dbank.TransactionTypeIn:
 		tcur.SumIn += trans.Amount
-	case bank.TransactionTypeOut:
+	case dbank.TransactionTypeOut:
 		tcur.SumOut += trans.Amount
 	default:
 		return fmt.Errorf("unknown transaction type %v", trans.TransactionType)
@@ -103,4 +100,71 @@ func (s *BankService) CalculateTransactionSummary(tcur *bank.TransactionSummary,
 	tcur.SumTotal = tcur.SumIn - tcur.SumOut
 
 	return nil
+}
+
+func (s *BankService) Transfer(tt dbank.TransferTransaction) (uuid.UUID, bool, error) {
+	now := time.Now()
+
+	fromAccountOrm, err := s.db.GetBankAccountByAccountNumber(tt.FromAccountNumber)
+
+	if err != nil {
+		log.Printf("Can't find transfer from account %v: %v\n", tt.FromAccountNumber, err)
+		return uuid.Nil, false, err
+	}
+
+	toAccountOrm, err := s.db.GetBankAccountByAccountNumber(tt.ToAccountNumber)
+
+	if err != nil {
+		log.Printf("Can't find transfer to account %v: %v\n", tt.ToAccountNumber, err)
+		return uuid.Nil, false, err
+	}
+
+	fromTransactionOrm := db.BankTransactionOrm{
+		TransactionUuid:      uuid.New(),
+		TransactionTimestamp: now,
+		TransactionType:      dbank.TransactionTypeIn,
+		AccountUuid:          fromAccountOrm.AccountUuid,
+		Amount:               tt.Amount,
+		Notes:                "Transfer out to " + tt.ToAccountNumber,
+		CreatedAt:            now,
+		UpdatedAt:            now,
+	}
+
+	toTransactionOrm := db.BankTransactionOrm{
+		TransactionUuid:      uuid.New(),
+		TransactionTimestamp: now,
+		TransactionType:      dbank.TransactionTypeIn,
+		AccountUuid:          toAccountOrm.AccountUuid,
+		Amount:               tt.Amount,
+		Notes:                "Transfer in from " + tt.FromAccountNumber,
+		CreatedAt:            now,
+		UpdatedAt:            now,
+	}
+
+	// create transfer request
+	newTransferUuid := uuid.New()
+
+	transferOrm := db.BankTransferOrm{
+		TransferUuid: newTransferUuid,
+		FromAccountUuid: fromAccountOrm.AccountUuid,
+		ToAccountUuid: toAccountOrm.AccountUuid,
+		Currency: tt.Currency,
+		Amount: tt.Amount,
+		TransferTimestamp: now,
+		TransferSuccess: false,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	if _, err := s.db.CreateTransfer(transferOrm); err != nil{
+		log.Printf("Can't create transfer from %v to %v : %v\n", tt.FromAccountNumber, tt.ToAccountNumber, err)
+		return uuid.Nil, false, err
+	}
+
+	if transferPairSuccess, err := s.db.CreateTransferTransactionPair(fromAccountOrm, toAccountOrm, fromTransactionOrm, toTransactionOrm); transferPairSuccess {
+		s.db.UpdateTransferStatus(transferOrm, true)
+		return newTransferUuid, true, nil
+	} else {
+		return newTransferUuid, false, err
+	}
 }

@@ -55,3 +55,63 @@ Migration tool - https://github.com/golang-migrate/migrate
   - Get exchange rates (server stream)
   - Summarize transactions (client stream)
   - Transfer to multiple accounts (bi-directional stream)
+
+---
+
+## Status
+
+- REST API has HTTP response status codes: 1xx(Informational),
+  2xx(Success),3xx(Redirect),4xx(Client error), 5xx(Server error)
+
+- gRPC status codes
+  - Success
+  - Error
+  - Stream termination
+
+- gRPC status message
+
+- Status:
+  - Successful call should return status code 0
+  - Build status using go packages
+    - google.golang.org/grpc/status
+    - google.golang.org/grpc/codes
+
+- https://grpc.github.io/grpc/core/md_doc_statuscodes.html
+
+
+
+| HTTP Status Code       | gRPC Status Code          | Meaning                                                                                   |
+|------------------------|---------------------------|-------------------------------------------------------------------------------------------|
+| 200 OK                 | 0 OK                      | Success, no error.                                                                        |
+| 400 Client error       | 3 INVALID_ARGUMENT        | Client specified as invalid argument. Check error message and error details for more information. |
+| 400 Client error       | 9 FAILED_PRECONDITION     | Request can not be executed in the current system state, such as deleting a non-empty directory. |
+| 400 Client error       | 11 OUT_OF_RANGE           | Client specified an invalid range.                                                        |
+| 401 Unauthorized       | 16 UNAUTHENTICATED        | Request not authenticated due to missing, invalid, or expired OAuth token.                 |
+| 403 Forbidden          | 7 PERMISSION_DENIED       | Client does not have sufficient permission. This can happen because the OAuth token does not have the right scopes, the client doesn't have permission, or the API has not been enabled. |
+| 404 Not Found          | 5 NOT_FOUND               | A specified resource is not found.                                                        |
+| 409 Conflict           | 10 ABORTED                | Concurrency conflict, such as read-modify-write conflict.                                  |
+| 409 Conflict           | 6 ALREADY_EXISTS          | The resource that a client tried to create already exists.                                 |
+| 429 Too Many Requests  | 8 RESOURCE_EXHAUSTED      | Either out of resource quota or reaching rate limiting. The client should look for `google.rpc.QuotaFailure` error detail for more information. |
+| 499 Client Closed Request | 1 CANCELLED            | Request cancelled by the client.                                                          |
+| 500 Internal Server Error | 15 DATA_LOSS           | Unrecoverable data loss or data corruption. The client should report the error to the user. |
+| 500 Internal Server Error | 2 UNKNOWN              | Unknown server error. Typically a server bug.                                             |
+| 500 Internal Server Error | 13 INTERNAL            | Internally server error. Typically a server bug.                                          |
+| 501 Not Implemented    | 12 UNIMPLEMENTED          | API method not implemented by the server.                                                 |
+| 503 Service Unavailable| 14 UNAVAILABLE            | Service unavailable. Typically the server is down.                                        |
+| 504 Gateway Timeout    | 4 DEADLINE_EXCEEDED       | Request deadline exceeded. This will happen only if the caller sets a deadline that is shorter than the method's default deadline (i.e., requested deadline is not enough for the server to process the request) and the request did not finish within the deadline. |
+
+
+
+| HTTP Status Code | gRPC Status Code          | Meaning                                |
+|------------------|---------------------------|----------------------------------------|
+| 200 OK           | `OK` (0)                  | Request was successful                 |
+| 400 Bad Request  | `INVALID_ARGUMENT` (3)    | Client provided invalid request data   |
+| 401 Unauthorized | `UNAUTHENTICATED` (16)    | Authentication failed or missing       |
+| 403 Forbidden    | `PERMISSION_DENIED` (7)   | Client does not have access rights     |
+| 404 Not Found    | `NOT_FOUND` (5)           | Resource not found                     |
+| 409 Conflict     | `ALREADY_EXISTS` (6)      | Resource already exists                |
+| 429 Too Many Requests | `RESOURCE_EXHAUSTED` (8) | Rate limit exceeded                    |
+| 500 Internal Server Error | `INTERNAL` (13)     | Server encountered an internal error   |
+| 501 Not Implemented | `UNIMPLEMENTED` (12)     | Method not implemented                 |
+| 503 Service Unavailable | `UNAVAILABLE` (14)    | Service is currently unavailable       |
+| 504 Gateway Timeout    | `DEADLINE_EXCEEDED` (4) | Request timeout exceeded               |
