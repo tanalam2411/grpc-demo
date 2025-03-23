@@ -1,6 +1,8 @@
 package port
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	db "github.com/tanalam2411/grpc-demo/internal/adapter/database"
 )
@@ -12,4 +14,7 @@ type DummyDatabasePort interface {
 
 type BankDatabasePort interface {
 	GetBankAccountByAccountNumber(acct string) (db.BankAccountOrm, error)
+	CreateExchangeRate(r db.BankExchangeRateOrm) (uuid.UUID, error)
+	GetExchangeRateAtTimestamp(fromCur string, tuCur string, ts time.Time) (db.BankExchangeRateOrm, error)
+	CreateTransaction(acct db.BankAccountOrm, t db.BankTransactionOrm) (uuid.UUID, error)
 }

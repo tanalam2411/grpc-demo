@@ -5,8 +5,6 @@ import (
 )
 
 type Dummy struct {
-	UserId uuid.UUID
+	UserId   uuid.UUID
 	UserName string
 }
-
-  

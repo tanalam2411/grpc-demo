@@ -1,8 +1,8 @@
 package database
 
 import (
-	"fmt"
 	"database/sql"
+	"fmt"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -11,7 +11,6 @@ import (
 type DatabaseAdapter struct {
 	db *gorm.DB
 }
-
 
 func NewDatabaseAdapter(conn *sql.DB) (*DatabaseAdapter, error) {
 	db, err := gorm.Open(postgres.New(postgres.Config{
@@ -22,7 +21,7 @@ func NewDatabaseAdapter(conn *sql.DB) (*DatabaseAdapter, error) {
 		return nil, fmt.Errorf("Can't connect database (gorm): %v", err)
 	}
 
-	 return &DatabaseAdapter{
+	return &DatabaseAdapter{
 		db: db,
-	 }, nil
+	}, nil
 }

@@ -42,3 +42,16 @@
 wget https://raw.githubusercontent.com/googleapis/googleapis/refs/heads/master/google/type/date.proto
 
 ```
+
+Install Postgresql - https://squaredup.com/blog/running-postgres-in-docker/
+Migration tool - https://github.com/golang-migrate/migrate
+
+---
+
+### Bank gRPC
+
+- Functionalities:
+  - Get current balance (unary)
+  - Get exchange rates (server stream)
+  - Summarize transactions (client stream)
+  - Transfer to multiple accounts (bi-directional stream)

@@ -3,16 +3,15 @@ package grpc
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"time"
-	"io"
 
 	"github.com/tanalam2411/grpc-demo/protogen/go/hello"
 	"google.golang.org/grpc"
 )
 
-
-func (a *GrpcAdapter) SayHello(ctx context.Context, req * hello.HelloRequest) (*hello.HelloResponse, error) {
+func (a *GrpcAdapter) SayHello(ctx context.Context, req *hello.HelloRequest) (*hello.HelloResponse, error) {
 	greet := a.helloService.GenerateHello(req.Name)
 
 	return &hello.HelloResponse{
@@ -22,7 +21,7 @@ func (a *GrpcAdapter) SayHello(ctx context.Context, req * hello.HelloRequest) (*
 
 func (a *GrpcAdapter) SayManyHellos(req *hello.HelloRequest, stream grpc.ServerStreamingServer[hello.HelloResponse]) error {
 
-	for i :=0; i<10; i++ {
+	for i := 0; i < 10; i++ {
 		greet := a.helloService.GenerateHello(req.Name)
 
 		res := fmt.Sprintf("[%d] %s", i, greet)
@@ -40,8 +39,7 @@ func (a *GrpcAdapter) SayManyHellos(req *hello.HelloRequest, stream grpc.ServerS
 	return nil
 }
 
-
-func ( a *GrpcAdapter) SayHelloToEveryOne(stream grpc.ClientStreamingServer[hello.HelloRequest, hello.HelloResponse]) error {
+func (a *GrpcAdapter) SayHelloToEveryOne(stream grpc.ClientStreamingServer[hello.HelloRequest, hello.HelloResponse]) error {
 	res := ""
 
 	for {
@@ -64,7 +62,6 @@ func ( a *GrpcAdapter) SayHelloToEveryOne(stream grpc.ClientStreamingServer[hell
 		res += greet + " "
 	}
 }
-
 
 func (a *GrpcAdapter) SayHelloContinuous(stream grpc.BidiStreamingServer[hello.HelloRequest, hello.HelloResponse]) error {
 

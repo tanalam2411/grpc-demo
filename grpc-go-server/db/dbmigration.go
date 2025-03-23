@@ -15,10 +15,10 @@ func Migrate(conn *sql.DB) {
 
 	driver, err := postgres.WithInstance(conn, &postgres.Config{})
 
-	if err != nil{
+	if err != nil {
 		log.Fatalln("Failed to get Postgres Instance: ", err)
 	}
-	
+
 	m, err := migrate.NewWithDatabaseInstance("file://db/migrations", "grpc", driver)
 
 	if err != nil {

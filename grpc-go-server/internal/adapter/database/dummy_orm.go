@@ -6,10 +6,9 @@ import (
 	"github.com/google/uuid"
 )
 
-
 type DummyOrm struct {
-	UserId uuid.UUID `gorm:"primaryKey"`
-	UserName string
+	UserId    uuid.UUID `gorm:"primaryKey"`
+	UserName  string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
