@@ -23,6 +23,7 @@ const (
 	BankService_FetchExchangeRates_FullMethodName    = "/bank.BankService/FetchExchangeRates"
 	BankService_SummarizeTransactions_FullMethodName = "/bank.BankService/SummarizeTransactions"
 	BankService_TransferMultiple_FullMethodName      = "/bank.BankService/TransferMultiple"
+	BankService_CreateAccount_FullMethodName         = "/bank.BankService/CreateAccount"
 )
 
 // BankServiceClient is the client API for BankService service.
@@ -33,6 +34,7 @@ type BankServiceClient interface {
 	FetchExchangeRates(ctx context.Context, in *ExchangeRateRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ExchangeRateResponse], error)
 	SummarizeTransactions(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[Transaction, TransactionSummary], error)
 	TransferMultiple(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[TransferRequest, TransferResponse], error)
+	CreateAccount(ctx context.Context, in *CreateAccountRequest, opts ...grpc.CallOption) (*CreateAccountResponse, error)
 }
 
 type bankServiceClient struct {
@@ -98,6 +100,16 @@ func (c *bankServiceClient) TransferMultiple(ctx context.Context, opts ...grpc.C
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type BankService_TransferMultipleClient = grpc.BidiStreamingClient[TransferRequest, TransferResponse]
 
+func (c *bankServiceClient) CreateAccount(ctx context.Context, in *CreateAccountRequest, opts ...grpc.CallOption) (*CreateAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateAccountResponse)
+	err := c.cc.Invoke(ctx, BankService_CreateAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BankServiceServer is the server API for BankService service.
 // All implementations must embed UnimplementedBankServiceServer
 // for forward compatibility.
@@ -106,6 +118,7 @@ type BankServiceServer interface {
 	FetchExchangeRates(*ExchangeRateRequest, grpc.ServerStreamingServer[ExchangeRateResponse]) error
 	SummarizeTransactions(grpc.ClientStreamingServer[Transaction, TransactionSummary]) error
 	TransferMultiple(grpc.BidiStreamingServer[TransferRequest, TransferResponse]) error
+	CreateAccount(context.Context, *CreateAccountRequest) (*CreateAccountResponse, error)
 	mustEmbedUnimplementedBankServiceServer()
 }
 
@@ -127,6 +140,9 @@ func (UnimplementedBankServiceServer) SummarizeTransactions(grpc.ClientStreaming
 }
 func (UnimplementedBankServiceServer) TransferMultiple(grpc.BidiStreamingServer[TransferRequest, TransferResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method TransferMultiple not implemented")
+}
+func (UnimplementedBankServiceServer) CreateAccount(context.Context, *CreateAccountRequest) (*CreateAccountResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateAccount not implemented")
 }
 func (UnimplementedBankServiceServer) mustEmbedUnimplementedBankServiceServer() {}
 func (UnimplementedBankServiceServer) testEmbeddedByValue()                     {}
@@ -192,6 +208,24 @@ func _BankService_TransferMultiple_Handler(srv interface{}, stream grpc.ServerSt
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type BankService_TransferMultipleServer = grpc.BidiStreamingServer[TransferRequest, TransferResponse]
 
+func _BankService_CreateAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BankServiceServer).CreateAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BankService_CreateAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BankServiceServer).CreateAccount(ctx, req.(*CreateAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // BankService_ServiceDesc is the grpc.ServiceDesc for BankService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -202,6 +236,10 @@ var BankService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetCurrentBalance",
 			Handler:    _BankService_GetCurrentBalance_Handler,
+		},
+		{
+			MethodName: "CreateAccount",
+			Handler:    _BankService_CreateAccount_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

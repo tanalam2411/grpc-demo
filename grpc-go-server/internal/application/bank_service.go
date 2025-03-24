@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	db "github.com/tanalam2411/grpc-demo/internal/adapter/database"
+	"github.com/tanalam2411/grpc-demo/internal/application/domain/bank"
 	dbank "github.com/tanalam2411/grpc-demo/internal/application/domain/bank"
 	"github.com/tanalam2411/grpc-demo/internal/port"
 )
@@ -21,14 +22,15 @@ func NewBankService(dbPort port.BankDatabasePort) *BankService {
 	}
 }
 
-func (s *BankService) FindCurrentBalance(acct string) float64 {
+func (s *BankService) FindCurrentBalance(acct string) (float64, error) {
 	bankAccount, err := s.db.GetBankAccountByAccountNumber(acct)
 
 	if err != nil {
 		log.Println("Error on FindCurrentBalance: ", err)
+		return 0, err
 	}
 
-	return bankAccount.CurrentBalance
+	return bankAccount.CurrentBalance, nil
 }
 
 func (s *BankService) CreateExchangeRate(r dbank.ExchangeRate) (uuid.UUID, error) {
@@ -49,14 +51,14 @@ func (s *BankService) CreateExchangeRate(r dbank.ExchangeRate) (uuid.UUID, error
 	return s.db.CreateExchangeRate(exchangeRateOrm)
 }
 
-func (s *BankService) FindExchangeRate(fromCur string, toCur string, ts time.Time) float64 {
+func (s *BankService) FindExchangeRate(fromCur string, toCur string, ts time.Time) (float64, error) {
 	exchangeRate, err := s.db.GetExchangeRateAtTimestamp(fromCur, toCur, ts)
 
 	if err != nil {
-		return 0
+		return 0, err
 	}
 
-	return float64(exchangeRate.Rate)
+	return float64(exchangeRate.Rate), nil
 }
 
 func (s *BankService) CreateTransaction(acct string, t dbank.Transaction) (uuid.UUID, error) {
@@ -67,8 +69,15 @@ func (s *BankService) CreateTransaction(acct string, t dbank.Transaction) (uuid.
 
 	if err != nil {
 		log.Printf("Can't create transaction for %v : %v\n", acct, err)
-		return uuid.Nil, err
+		return uuid.Nil, fmt.Errorf("Can't find account number %v: %v", acct, err.Error())
 	}
+
+	if t.TransactionType == bank.TransactionTypeOut && bankAccountOrm.CurrentBalance < t.Amount{
+		return bankAccountOrm.AccountUuid, fmt.Errorf(
+			"Insufficient account balance %v for [out] transaction amount %v", 
+			bankAccountOrm.CurrentBalance, t.Amount,
+		)
+	} 
 
 	transactionOrm := db.BankTransactionOrm{
 		TransactionUuid:      newUuid,
@@ -109,14 +118,18 @@ func (s *BankService) Transfer(tt dbank.TransferTransaction) (uuid.UUID, bool, e
 
 	if err != nil {
 		log.Printf("Can't find transfer from account %v: %v\n", tt.FromAccountNumber, err)
-		return uuid.Nil, false, err
+		return uuid.Nil, false, dbank.ErrTransferSourceAccountNotFound
+	}
+
+	if fromAccountOrm.CurrentBalance < tt.Amount {
+		return uuid.Nil, false, dbank.ErrTransferTransactionPair
 	}
 
 	toAccountOrm, err := s.db.GetBankAccountByAccountNumber(tt.ToAccountNumber)
 
 	if err != nil {
 		log.Printf("Can't find transfer to account %v: %v\n", tt.ToAccountNumber, err)
-		return uuid.Nil, false, err
+		return uuid.Nil, false, dbank.ErrTransferDestinationAccountNotFound
 	}
 
 	fromTransactionOrm := db.BankTransactionOrm{
@@ -158,13 +171,13 @@ func (s *BankService) Transfer(tt dbank.TransferTransaction) (uuid.UUID, bool, e
 
 	if _, err := s.db.CreateTransfer(transferOrm); err != nil{
 		log.Printf("Can't create transfer from %v to %v : %v\n", tt.FromAccountNumber, tt.ToAccountNumber, err)
-		return uuid.Nil, false, err
+		return uuid.Nil, false, dbank.ErrTransferRecordFailed
 	}
 
-	if transferPairSuccess, err := s.db.CreateTransferTransactionPair(fromAccountOrm, toAccountOrm, fromTransactionOrm, toTransactionOrm); transferPairSuccess {
+	if transferPairSuccess, _ := s.db.CreateTransferTransactionPair(fromAccountOrm, toAccountOrm, fromTransactionOrm, toTransactionOrm); transferPairSuccess {
 		s.db.UpdateTransferStatus(transferOrm, true)
 		return newTransferUuid, true, nil
 	} else {
-		return newTransferUuid, false, err
+		return newTransferUuid, false, dbank.ErrTransferTransactionPair
 	}
 }
