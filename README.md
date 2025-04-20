@@ -119,7 +119,7 @@ Migration tool - https://github.com/golang-migrate/migrate
 
 ---
 
-Retry Pattern
+### Retry Pattern
 
 - https://github.com/grpc-ecosystem/go-grpc-middleware/tree/main/interceptors/retry
 
@@ -173,3 +173,25 @@ go: downloading github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.1
 go: added github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.1
 ```
 
+---
+
+### Circuit Breaker Pattern
+
+- Circuit: connection between two services
+- Circuit open when error rates reach threshold, intentionally disabling connection
+- Request immediately fail when circuit opens
+- Circuit reset(half-open) after configured time
+- No error: close circuit & resume traffic
+- Repeat process (open/close circuit) based on error
+
+Terms:
+
+- MaxRequests ````
+- Interval
+- Timeout
+- ReadyToTrip
+- OnStateChange
+
+- Can define several circuit breakers with different configurations
+- Use: https://github.com/sony/gobreaker
+- Ony works for unary gRPC API call

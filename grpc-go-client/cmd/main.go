@@ -12,12 +12,36 @@ import (
 	"github.com/tanalam2411/grpc-demo/internal/adapter/resiliency"
 	dbank "github.com/tanalam2411/grpc-demo/internal/application/domain/bank"
 	dresl "github.com/tanalam2411/grpc-demo/internal/application/domain/resiliency"
+	resl_proto "github.com/tanalam2411/grpc-demo/protogen/go/resiliency"
 
 	grpcr "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/retry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"github.com/sony/gobreaker"
 )
+
+
+ var cbreaker *gobreaker.CircuitBreaker
+
+ func init() {
+	mybreaker := gobreaker.Settings{
+		Name: "course-circuit-breaker",
+		ReadyToTrip: func(counts gobreaker.Counts) bool {
+			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
+
+			log.Printf("Circuit breaker failure is %v, requests is %v, means failure ratio: %v\n", counts.TotalFailures, counts.Requests, failureRatio)
+
+			return counts.Requests >= 3 && failureRatio >= 0.6
+		},
+		Timeout: 4 * time.Second,
+		MaxRequests: 3,
+		OnStateChange: func(name string, from, to gobreaker.State){
+			log.Printf("Circuit breaker %v changed state, from %v to %v\n\n", name, from, to)
+		},
+	}
+	cbreaker = gobreaker.NewCircuitBreaker(mybreaker)
+ }
 
 func main() {
 	log.SetFlags(0)
@@ -98,7 +122,10 @@ func main() {
 	// runClientStreamingResiliency(resiliencyAdapter, 0, 3, []uint32{dresl.UNKNOWN}, 10)
 	// runBiDirectionalResiliency(resiliencyAdapter, 0, 3, []uint32{dresl.UNKNOWN}, 10)
 
-
+	for i := 0; i < 300; i++ {
+		runUnaryResiliencyWithCircuitBreaker(resiliencyAdapter, 0, 3, []uint32{dresl.UNKNOWN, dresl.OK})
+		time.Sleep(3*time.Second)
+	}
 
 }
 
@@ -246,4 +273,19 @@ func runBiDirectionalResiliency(adapter *resiliency.ResiliencyAdapter, minDelayS
 	maxDelaySecond int32, statusCodes []uint32, count int) {
 
 	adapter.BiDirectionalResiliency(context.Background(), minDelaySecond, maxDelaySecond, statusCodes, count)
+}
+
+
+func runUnaryResiliencyWithCircuitBreaker(adapter *resiliency.ResiliencyAdapter, minDelaySecond int32, maxDelaySecond int32, statusCodes []uint32) {
+	cbreakerRes, cbreakerErr := cbreaker.Execute(
+		func() (interface{}, error) {
+			return adapter.UnaryResiliency(context.Background(), minDelaySecond, maxDelaySecond, statusCodes)
+		},
+	)
+
+	if cbreakerErr != nil{
+		log.Println("Failed to call UnaryResiliency: ", cbreakerErr)
+	} else {
+		log.Panicln(cbreakerRes.(*resl_proto.ResiliencyResponse).DummyString)
+	}
 }
