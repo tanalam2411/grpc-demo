@@ -11,12 +11,9 @@ import (
 	"google.golang.org/grpc"
 )
 
-
-
 type HelloAdapter struct {
 	helloClient port.HelloClientPort
 }
-
 
 func NewHelloAdapter(conn *grpc.ClientConn) (*HelloAdapter, error) {
 	client := hello.NewHelloServiceClient(conn)
@@ -40,7 +37,6 @@ func (a *HelloAdapter) SayHello(ctx context.Context, name string) (*hello.HelloR
 	return greet, nil
 
 }
-
 
 func (a *HelloAdapter) SayManyHellos(ctx context.Context, name string) {
 	helloRequest := &hello.HelloRequest{
@@ -69,7 +65,6 @@ func (a *HelloAdapter) SayManyHellos(ctx context.Context, name string) {
 
 }
 
-
 func (a *HelloAdapter) SayHelloToEveryOne(ctx context.Context, names []string) {
 	greetStream, err := a.helloClient.SayHelloToEveryOne(ctx)
 
@@ -93,8 +88,7 @@ func (a *HelloAdapter) SayHelloToEveryOne(ctx context.Context, names []string) {
 	}
 
 	log.Println(res.Greet)
-} 
-
+}
 
 func (a *HelloAdapter) SayHelloContinuous(ctx context.Context, names []string) {
 
@@ -106,9 +100,9 @@ func (a *HelloAdapter) SayHelloContinuous(ctx context.Context, names []string) {
 
 	greetChan := make(chan struct{})
 
-	go func(){
+	go func() {
 
-		for _, name := range names{
+		for _, name := range names {
 			req := &hello.HelloRequest{
 				Name: name,
 			}
@@ -118,11 +112,11 @@ func (a *HelloAdapter) SayHelloContinuous(ctx context.Context, names []string) {
 		greetStream.CloseSend()
 	}()
 
-	go func(){
+	go func() {
 		for {
 			greet, err := greetStream.Recv()
 
-			if err == io.EOF{
+			if err == io.EOF {
 				break
 			}
 

@@ -3,10 +3,9 @@ package port
 import (
 	"context"
 
-	"google.golang.org/grpc"
 	"github.com/tanalam2411/grpc-demo/protogen/go/bank"
+	"google.golang.org/grpc"
 )
-
 
 type BankClientPort interface {
 	GetCurrentBalance(ctx context.Context, in *bank.CurrentBalanceRequest, opts ...grpc.CallOption) (*bank.CurrentBalanceResponse, error)

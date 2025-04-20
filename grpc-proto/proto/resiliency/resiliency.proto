@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package resiliency;
+
+option go_package = "github.com/tanalam2411/grpc-demo/protogen/go/resiliency";
+
+
+message ResiliencyRequest {
+  int32 min_delay_second = 1 [json_name = "min_delay_second"];
+  int32 max_delay_second = 2 [json_name = "max_delay_second"];
+  repeated uint32 status_codes = 3 [json_name = "status_codes"];
+}
+
+message ResiliencyResponse {
+  string dummy_string = 1 [json_name = "dummy_string"];
+}
+
+service ResiliencyService {
+  rpc UnaryResiliency(ResiliencyRequest)
+  returns (ResiliencyResponse) {}
+
+  rpc ServerStreamingResiliency(ResiliencyRequest)
+  returns (stream ResiliencyResponse) {}
+
+  rpc ClientStreamingResiliency(stream ResiliencyRequest)
+  returns (ResiliencyResponse) {}
+
+  rpc BiDirectionalResiliency(stream ResiliencyRequest)
+  returns (stream ResiliencyResponse) {}
+}

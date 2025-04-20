@@ -42,10 +42,11 @@ func main() {
 
 	hs := &app.HelloService{}
 	bs := app.NewBankService(databaseAdapter)
+	rs := &app.ResiliencyService{}
 
 	go generateExchangeRates(bs, "USD", "TDR", 5*time.Second)
 
-	grpcAdapter := grpc.NewGrpcAdapter(hs, bs, 9090)
+	grpcAdapter := grpc.NewGrpcAdapter(hs, bs, rs, 9090)
 
 	grpcAdapter.Run()
 }

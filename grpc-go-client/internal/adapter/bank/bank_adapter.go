@@ -8,16 +8,15 @@ import (
 	dbank "github.com/tanalam2411/grpc-demo/internal/application/domain/bank"
 	"github.com/tanalam2411/grpc-demo/internal/port"
 	"github.com/tanalam2411/grpc-demo/protogen/go/bank"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/genproto/googleapis/rpc/errdetails"
 )
 
 type BankAdapter struct {
 	bankClient port.BankClientPort
 }
-
 
 func NewBankAdapter(conn *grpc.ClientConn) (*BankAdapter, error) {
 	client := bank.NewBankServiceClient(conn)
@@ -27,7 +26,6 @@ func NewBankAdapter(conn *grpc.ClientConn) (*BankAdapter, error) {
 	}, nil
 }
 
-
 func (a *BankAdapter) GetCurrentBalance(ctx context.Context, acct string) (*bank.CurrentBalanceResponse, error) {
 	bankRequest := &bank.CurrentBalanceRequest{
 		AccountNumber: acct,
@@ -35,22 +33,22 @@ func (a *BankAdapter) GetCurrentBalance(ctx context.Context, acct string) (*bank
 
 	bal, err := a.bankClient.GetCurrentBalance(ctx, bankRequest)
 
-	if err != nil{
+	if err != nil {
 		st, _ := status.FromError(err)
 		log.Fatalln("[FATAL] Error on GetCurrentBalance: ", st)
 	}
-	return bal ,nil
+	return bal, nil
 }
 
 func (a *BankAdapter) FetchExchangeRates(ctx context.Context, fromCur string, toCur string) {
 	bankRequest := &bank.ExchangeRateRequest{
 		FromCurrency: fromCur,
-		ToCurrency: toCur,
+		ToCurrency:   toCur,
 	}
 
 	exchangeRateStream, err := a.bankClient.FetchExchangeRates(ctx, bankRequest)
 
-	if err != nil{
+	if err != nil {
 		log.Fatalln("[FATAL] Error on FetchExchangeRates: ", err)
 	}
 
@@ -73,15 +71,14 @@ func (a *BankAdapter) FetchExchangeRates(ctx context.Context, fromCur string, to
 	}
 }
 
-
 func (a *BankAdapter) SummarizeTransactions(ctx context.Context, acct string, tx []dbank.Transaction) {
 	txStream, err := a.bankClient.SummarizeTransactions(ctx)
 
-	if err != nil{
+	if err != nil {
 		log.Fatalln("[FATAL] Error on SummarizeTransactions: ", err)
 	}
 
-	for _, t := range tx{
+	for _, t := range tx {
 		ttype := bank.TransactionType_TRANSACTION_TYPE_UNSPECIFIED
 
 		if t.TransactionType == dbank.TransactionTypeIn {
@@ -92,9 +89,9 @@ func (a *BankAdapter) SummarizeTransactions(ctx context.Context, acct string, tx
 
 		bankRequest := &bank.Transaction{
 			AccountNumber: acct,
-			Type: ttype,
-			Amount: t.Amount,
-			Notes: t.Notes,
+			Type:          ttype,
+			Amount:        t.Amount,
+			Notes:         t.Notes,
 		}
 
 		txStream.Send(bankRequest)
@@ -102,7 +99,7 @@ func (a *BankAdapter) SummarizeTransactions(ctx context.Context, acct string, tx
 
 	summary, err := txStream.CloseAndRecv()
 
-	if err != nil{
+	if err != nil {
 		st, _ := status.FromError(err)
 		log.Fatalln("[FATAL] Error on SummarizeTransactions: ", st)
 	}
@@ -110,11 +107,10 @@ func (a *BankAdapter) SummarizeTransactions(ctx context.Context, acct string, tx
 	log.Println(summary)
 }
 
-
 func (a *BankAdapter) TransferMultiple(ctx context.Context, trf []dbank.TransferTransaction) {
 	trfStream, err := a.bankClient.TransferMultiple(ctx)
 
-	if err != nil{
+	if err != nil {
 		log.Fatalln("[FATAL] Error on TransferMultiple: ", err)
 	}
 
@@ -124,9 +120,9 @@ func (a *BankAdapter) TransferMultiple(ctx context.Context, trf []dbank.Transfer
 		for _, tt := range trf {
 			req := &bank.TransferRequest{
 				FromAccountNumber: tt.FromAccountNumber,
-				ToAccountNumber: tt.ToAccountNumber,
-				Currency: tt.Currency,
-				Amount: tt.Amount,
+				ToAccountNumber:   tt.ToAccountNumber,
+				Currency:          tt.Currency,
+				Amount:            tt.Amount,
 			}
 
 			trfStream.Send(req)
@@ -135,15 +131,15 @@ func (a *BankAdapter) TransferMultiple(ctx context.Context, trf []dbank.Transfer
 		trfStream.CloseSend()
 	}()
 
-	go func(){
+	go func() {
 		for {
 			res, err := trfStream.Recv()
 
-			if err == io.EOF{
+			if err == io.EOF {
 				break
 			}
 
-			if err != nil{
+			if err != nil {
 				handleTransferErrorGrpc(err)
 				break
 			} else {
@@ -169,7 +165,7 @@ func handleTransferErrorGrpc(err error) {
 			}
 		case *errdetails.ErrorInfo:
 			log.Printf("Error on: %v, with reason %v\n", t.Domain, t.Reason)
-			for k, v := range t.GetMetadata(){
+			for k, v := range t.GetMetadata() {
 				log.Printf(" %v: %v\n", k, v)
 			}
 		}

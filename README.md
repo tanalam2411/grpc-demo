@@ -115,3 +115,61 @@ Migration tool - https://github.com/golang-migrate/migrate
 | 501 Not Implemented | `UNIMPLEMENTED` (12)     | Method not implemented                 |
 | 503 Service Unavailable | `UNAVAILABLE` (14)    | Service is currently unavailable       |
 | 504 Gateway Timeout    | `DEADLINE_EXCEEDED` (4) | Request timeout exceeded               |
+
+
+---
+
+Retry Pattern
+
+- https://github.com/grpc-ecosystem/go-grpc-middleware/tree/main/interceptors/retry
+
+gRPC Interceptor:
+
+- Intercepts gRPC traffic & add functionality
+- Interceptor configuration: WithCodes, WithMax, WithBackoff
+- Configuration has default values(can be overridden)
+
+`WithCodes`: when to retry(based on received response code)
+`WithMax`: Maximum limit to retry
+  - keep retry until reach maximum limit, or until get response code not included on WithCodes
+`WithBackOff`:
+  - Requires `grpc_retry` function
+  - `BackoffLinear`: fixed time interval
+  - `BackoffExponential`: current interval * 2
+  - `BackoffLinearWithJitter / BackoffExponentialWithJitter`
+
+```go
+import grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/interceptors/retry"
+...
+...
+
+var opts []grpc.DialOption
+
+opts = append(opts,
+      grpc.WithUnaryInterceptor(
+        grpc_retry.UnaryClientInterceptor(   # UnaryInterceptor on dial options
+          grpc_retry.WithCodes(...), grpc_retry.WithMax(...),
+          grpc_retry.WithBackoff(grpc_retry.BackoffExponential(...)),
+        )
+      )
+    )
+
+
+opts = append(opts,
+      grpc.WithStreamInterceptor(
+        grpc_retry.StreamClientInterceptor(   // StreamInterceptor on dial options (Note: only works for server streaming gRPC API)
+          grpc_retry.WithCodes(...), grpc_retry.WithMax(...),
+          grpc_retry.WithBackoff(grpc_retry.BackoffExponential(...)),
+        )
+      )
+    )
+
+conn, err := grpc.Dial("localhost:9090", opts...)
+```
+
+```shell
+go get github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/retry
+go: downloading github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.1
+go: added github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.1
+```
+

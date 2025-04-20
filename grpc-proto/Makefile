@@ -18,7 +18,7 @@ protoc-go:
 	--go-grpc_opt=module=${GO_MODULE} --go-grpc_out=. \
 	./proto/hello/*.proto ./proto/payment/*.proto ./proto/transaction/*.proto \
 	./proto/bank/*.proto ./proto/bank/type/*.proto \
-	# ./proto/resiliency/*.proto \
+	./proto/resiliency/*.proto \
 
 .PHONY: build
 build: clean protoc-go

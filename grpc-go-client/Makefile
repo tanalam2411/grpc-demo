@@ -7,6 +7,7 @@ endif
 .PHONY: tidy
 tidy:
 	go mod tidy
+	go fmt ./...
 
 
 .PHONY: clean
