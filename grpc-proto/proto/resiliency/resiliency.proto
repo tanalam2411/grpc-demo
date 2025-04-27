@@ -28,3 +28,18 @@ service ResiliencyService {
   rpc BiDirectionalResiliency(stream ResiliencyRequest)
   returns (stream ResiliencyResponse) {}
 }
+
+
+service ResiliencyWithMetadataService {
+  rpc UnaryResiliencyWithMetadata(ResiliencyRequest)
+  returns (ResiliencyResponse) {}
+
+  rpc ServerStreamingResiliencyWithMetadata(ResiliencyRequest)
+  returns (stream ResiliencyResponse) {}
+
+  rpc ClientStreamingResiliencyWithMetadata(stream ResiliencyRequest)
+  returns (ResiliencyResponse) {}
+
+  rpc BiDirectionalResiliencyWithMetadata(stream ResiliencyRequest)
+  returns (stream ResiliencyResponse) {}
+}

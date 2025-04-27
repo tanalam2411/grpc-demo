@@ -195,3 +195,45 @@ Terms:
 - Can define several circuit breakers with different configurations
 - Use: https://github.com/sony/gobreaker
 - Ony works for unary gRPC API call
+
+---
+
+### gRPC Metadata
+
+- Similar to REST API: HTTP Header (request / response)
+- Adding/reading additional information
+- gRPC metadata (request / response)
+  - key-value pairs
+
+Use Cases
+
+- Authz/n
+- Routing
+- Tracing & monitoring
+- Rate limiting
+
+```go
+import (
+  "google.golang.org/grpc/metadata"
+)
+
+// read request metadata
+if requestMetadata, ok := metadata.FromIncomingContext(ctx); ok{
+  // ...
+}
+
+//  add response metadata
+md := map[string]string{
+  "response-metadata-key-1": "response-metadata-value-1",
+  ...
+}
+
+responseMetadata := metadata.New(md)    // can only called once, multiple calls will raise error
+err := grpc.SendHeader(ctx, responseMetadata)
+```
+
+#### gRPC Metadata
+
+- Client to send request metadata or read response metadata
+- Streaming response metadata will has one set of metadata for each opened stream
+

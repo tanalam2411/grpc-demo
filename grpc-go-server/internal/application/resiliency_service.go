@@ -13,7 +13,7 @@ type ResiliencyService struct{
 
 func (r *ResiliencyService) GenerateResiliency(minDelaySecond int32, maxDelaySecond int32, statusCodes []uint32) (string, uint32) {
 	
-	delay := rand.Intn(int(maxDelaySecond-minDelaySecond)) + int(minDelaySecond)
+	delay := rand.Intn(int(maxDelaySecond-minDelaySecond+1)) + int(minDelaySecond)
 	delaySecond := time.Duration(delay) * time.Second
 	time.Sleep(delaySecond)
 

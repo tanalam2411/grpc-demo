@@ -14,17 +14,16 @@ import (
 	dresl "github.com/tanalam2411/grpc-demo/internal/application/domain/resiliency"
 	resl_proto "github.com/tanalam2411/grpc-demo/protogen/go/resiliency"
 
-	grpcr "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/retry"
+	// grpcr "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/retry"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
+	// "google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"github.com/sony/gobreaker"
 )
 
+var cbreaker *gobreaker.CircuitBreaker
 
- var cbreaker *gobreaker.CircuitBreaker
-
- func init() {
+func init() {
 	mybreaker := gobreaker.Settings{
 		Name: "course-circuit-breaker",
 		ReadyToTrip: func(counts gobreaker.Counts) bool {
@@ -34,14 +33,14 @@ import (
 
 			return counts.Requests >= 3 && failureRatio >= 0.6
 		},
-		Timeout: 4 * time.Second,
+		Timeout:     4 * time.Second,
 		MaxRequests: 3,
-		OnStateChange: func(name string, from, to gobreaker.State){
+		OnStateChange: func(name string, from, to gobreaker.State) {
 			log.Printf("Circuit breaker %v changed state, from %v to %v\n\n", name, from, to)
 		},
 	}
 	cbreaker = gobreaker.NewCircuitBreaker(mybreaker)
- }
+}
 
 func main() {
 	log.SetFlags(0)
@@ -50,25 +49,27 @@ func main() {
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
-	opts = append(opts,
-		grpc.WithUnaryInterceptor(
-			grpcr.UnaryClientInterceptor(
-				grpcr.WithCodes(codes.Unknown, codes.Internal),
-				grpcr.WithMax(4),
-				grpcr.WithBackoff(grpcr.BackoffExponential(2*time.Second)),
-			),
-		),
-	)
+	// opts = append(opts,
+	// 	grpc.WithUnaryInterceptor(
+	// 		grpcr.UnaryClientInterceptor(
+	// 			grpcr.WithCodes(codes.Unknown, codes.Internal),
+	// 			grpcr.WithMax(4),
+	// 			grpcr.WithBackoff(grpcr.BackoffExponential(2*time.Second)),
+	// 		),
+	// 	),
+	// )
 
-	opts = append(opts, 
-		grpc.WithStreamInterceptor(
-			grpcr.StreamClientInterceptor(
-				grpcr.WithCodes(codes.Unknown, codes.Internal),
-				grpcr.WithMax(4),
-				grpcr.WithBackoff(grpcr.BackoffLinear(3*time.Second)),
-			),
-		),
-	)
+	// opts = append(opts,
+	// 	grpc.WithStreamInterceptor(
+	// 		grpcr.StreamClientInterceptor(
+	// 			grpcr.WithCodes(codes.Unknown, codes.Internal),
+	// 			grpcr.WithMax(4),
+	// 			grpcr.WithBackoff(grpcr.BackoffLinear(3*time.Second)),
+	// 		),
+	// 	),
+	// )
+
+	// opts = append(opts, grpc.WithDisableRetry())
 
 	conn, err := grpc.Dial("localhost:9090", opts...)
 
@@ -122,10 +123,16 @@ func main() {
 	// runClientStreamingResiliency(resiliencyAdapter, 0, 3, []uint32{dresl.UNKNOWN}, 10)
 	// runBiDirectionalResiliency(resiliencyAdapter, 0, 3, []uint32{dresl.UNKNOWN}, 10)
 
-	for i := 0; i < 300; i++ {
-		runUnaryResiliencyWithCircuitBreaker(resiliencyAdapter, 0, 3, []uint32{dresl.UNKNOWN, dresl.OK})
-		time.Sleep(3*time.Second)
-	}
+	// for i := 0; i < 300; i++ {
+	// 	runUnaryResiliencyWithCircuitBreaker(resiliencyAdapter, 0, 3, []uint32{dresl.UNKNOWN, dresl.OK})
+	// 	time.Sleep(3*time.Second)
+	// }
+
+	// runUnaryResiliencyWithMetadata(resiliencyAdapter, 0, 1, []uint32{dresl.OK})
+	// runServerStreamingResiliencyWithMetadata(resiliencyAdapter, 0, 1, []uint32{dresl.OK})
+	// runClientStreamingResiliencyWithMetadata(resiliencyAdapter, 0, 1, []uint32{dresl.OK}, 10)
+	runBiDirectionalResiliencyWithMetadata(resiliencyAdapter, 0, 1, []uint32{dresl.OK}, 10)
+
 
 }
 
@@ -275,7 +282,6 @@ func runBiDirectionalResiliency(adapter *resiliency.ResiliencyAdapter, minDelayS
 	adapter.BiDirectionalResiliency(context.Background(), minDelaySecond, maxDelaySecond, statusCodes, count)
 }
 
-
 func runUnaryResiliencyWithCircuitBreaker(adapter *resiliency.ResiliencyAdapter, minDelaySecond int32, maxDelaySecond int32, statusCodes []uint32) {
 	cbreakerRes, cbreakerErr := cbreaker.Execute(
 		func() (interface{}, error) {
@@ -283,9 +289,41 @@ func runUnaryResiliencyWithCircuitBreaker(adapter *resiliency.ResiliencyAdapter,
 		},
 	)
 
-	if cbreakerErr != nil{
+	if cbreakerErr != nil {
 		log.Println("Failed to call UnaryResiliency: ", cbreakerErr)
 	} else {
 		log.Panicln(cbreakerRes.(*resl_proto.ResiliencyResponse).DummyString)
 	}
+}
+
+// ------------------
+
+func runUnaryResiliencyWithMetadata(adapter *resiliency.ResiliencyAdapter, minDelaySecond int32,
+	maxDelaySecond int32, statusCodes []uint32) {
+
+	res, err := adapter.UnaryResiliencyWithMetadata(context.Background(), minDelaySecond, maxDelaySecond, statusCodes)
+
+	if err != nil {
+		log.Fatalln("Failed to call UnaryResiliencyWithMetadata: ", err)
+	}
+
+	log.Println(res.DummyString)
+}
+
+func runServerStreamingResiliencyWithMetadata(adapter *resiliency.ResiliencyAdapter, minDelaySecond int32,
+	maxDelaySecond int32, statusCodes []uint32) {
+
+	adapter.ServerStreamingResiliencyWithMetadata(context.Background(), minDelaySecond, maxDelaySecond, statusCodes)
+}
+
+func runClientStreamingResiliencyWithMetadata(adapter *resiliency.ResiliencyAdapter, minDelaySecond int32,
+	maxDelaySecond int32, statusCodes []uint32, count int) {
+
+	adapter.ClientStreamingResiliencyWithMetadata(context.Background(), minDelaySecond, maxDelaySecond, statusCodes, count)
+}
+
+func runBiDirectionalResiliencyWithMetadata(adapter *resiliency.ResiliencyAdapter, minDelaySecond int32,
+	maxDelaySecond int32, statusCodes []uint32, count int) {
+
+	adapter.BiDirectionalResiliencyWithMetadata(context.Background(), minDelaySecond, maxDelaySecond, statusCodes, count)
 }
