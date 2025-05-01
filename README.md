@@ -237,3 +237,317 @@ err := grpc.SendHeader(ctx, responseMetadata)
 - Client to send request metadata or read response metadata
 - Streaming response metadata will has one set of metadata for each opened stream
 
+---
+
+## Interceptor
+
+If we need to a functionality that must be added to all grpc request:
+
+On Client side: 
+- Log outgoing client call
+- Adding authentication token to be validated by server
+- Modify the request message
+- Adding some default value if user does not provide the value at the original request message
+- Add metadata
+
+On ServerSide:
+-  Log incoming request
+- Validate authentication token
+- Reject the request if authentication token if not valid
+- Modify response message, (e.g., masking credit card number)
+
+Interceptor:
+- Components that can be added to gRPC client or server
+- Intercept & process messages
+- Enable common functionality implementation without cluttering main business logic
+
+Interceptor Types:
+- UnaryServerInterceptor
+- StreamServerInterceptor
+- UnaryClientInterceptor
+- StreamClientInterceptor
+
+---
+
+### Server Interceptor
+
+Server - Unary interceptor, basic
+
+```go
+func MyUnaryServerInterceptor() grpc.UnaryServerInterceptor {
+  return func(ctx contexnt.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+    // ... interceptor logic
+
+    return handler(ctx, req)
+  }
+}
+```
+
+Server - Stream interceptor, basic
+
+```go
+func MyStreamServerInterceptor() grpc.StreamServerInterceptor {
+  return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+    // ... interceptor logic
+
+    return handler(srv, stream)
+  }
+}
+```
+
+Server - Unary interceptor, modify response message
+
+```go
+func MyUnaryServerInterceptor() grpc.UnaryServerInterceptor {
+  return func(ctx contexnt.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+    
+    res, _ := handler(ctx, req)
+
+    if response, ok := res.(*MyResponseMessage); ok {
+      // ... do something with response message
+    }
+
+    return handler(ctx, req)
+  }
+}
+```
+
+Server - Stream interceptor, modify response message
+
+```go
+
+type InterceptedServerStream struct {
+  grpc.ServerStream
+}
+
+func MyStreamServerInterceptor() grpc.StreamServerInterceptor {
+  return func(srv interface{}, serverStream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+    interceptedServerStream := &InterceptedServerStream{
+      ServerStream: serverStream
+    }
+    return handler(srv, interceptedServerStream)
+  }
+}
+
+func (s *InterceptedServerStream) SendMsg(msg interface{}) error {
+  switch response := msg.(type){
+    case *MyResponseMessage:
+      // ...modify response
+      return s.ServerStream.SendMsg(response)
+    default:
+      // Forward the original message to the original stream
+      return s.ServerStream.SendMsg(msg)
+  }
+ }
+```
+
+
+Server - Unary interceptor, modify request message
+
+```go
+
+func MyUnaryServerInterceptor() grpc.UnaryServerInterceptor {
+    return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+      // modify request
+      switch request := req.(type) {
+      case *hello_proto.HelloRequest:
+        // modify request
+        request.Name = "[MODIFIED BY SERVER INTERCEPTOR - 1]" + request.Name
+    }
+    return handler(ctx, req)
+  }
+}
+```
+
+
+Server - Stream interceptor, modify request message
+
+```go
+func (s *InterceptedServerStream) RecvMsg(msg interface{}) error {
+  err := s.ServerStream.RecvMsg(msg)
+  if err !=  nil{
+    return err
+  }
+
+  switch request := msg.(type) {
+    case *MyRequestMessage:
+      // ... modify request
+  }
+  return nil
+}
+```
+
+Server - Unary interceptor, modify response metadata
+
+```go
+func MyUnaryServerInterceptor() grpc.UnaryServerInterceptor {
+  return func(ctx contexnt.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+
+    responseMetadata, ok := metadata.FromOutgoingContext(ctx)
+    if !ok{
+      responseMetadata = metadata.New(nil)
+    }
+
+    responseMedata.Append("keyToAdd", "valueToAdd")
+    responseMedata.Set("keyToUpdate", "newValue")
+    responseMedata.Delete("keyToDelete")
+
+    ctx = metadata.NewOutgoingContext(ctx, responseMetadata)
+    grpc.SetHeader(ctx, responseMetadata)
+
+    return handler(ctx, req)
+  }
+}
+```
+
+---
+
+Server - Unary interceptor(single)
+
+```go
+grpc.UnaryInterceptor(clientUnaryInterceptor_1)
+```
+
+Server - Unary interceptor(multiple)
+```go
+grpc.ChainUnaryInterceptor(
+  clientUnaryInterceptor_1,
+  clientUnaryInterceptor_2,
+  clientUnaryInterceptor_3,
+),
+```
+
+Create interceptor on server
+```go
+grpcServer := grpc.NewServer(
+  // ...  interceptor here (single / multiple)
+)
+```
+
+---
+
+Client - Unary interceptor, basic
+
+```go
+func MyUnaryClientInterceptor() grpc.UnaryClientInterceptor{
+  return func(ctx context.Context, method string, req, reply interface{}, 
+              cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+      // ... interceptor logic
+
+      return invoker(ctx, method, req, reply, cc, opts...)
+
+    }
+}
+```
+
+Client - Stream interceptor, basic
+
+```go
+func MyStreamClientInterceptor() grpc.StreamClientInterceptor {
+  return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, 
+              streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+    // .. interceptor logic
+
+    return streamer(ctx, desc, cc, method, opts...)
+  }
+}
+```
+
+Client - Unary interceptor, modify request message
+```go
+func MyUnaryClientInterceptor() grpc.UnaryClientInterceptor{
+  return func() error {
+    switch request := req.(type) {
+      case *MyRequestMessage:
+        // ... modify request
+    }
+    return invoker(ctx, method, req, reply, cc, opts...)
+  }
+}
+```
+
+Client - Stream interceptor, modify request message
+```go
+type InterceptedClientStream struct {
+  grpc.ClientStream
+}
+
+func MyStreamClientInterceptor() grpc.StreamClientInterceptor {
+  return func() (grpc.ClientStream, error) {
+    clientStream, err := streamer(ctx, desc, cc, method, opts...)
+
+    interceptedClientStream := &InterceptedClientStream{
+      ClientStream: clientStream,
+    }
+    return interceptedClientStream, err
+  }
+}
+
+func (s *InterceptedClientStream) SendMsg(msg interface{}) error {
+  switch request := msg.(type) {
+    case *MyRequestMessage:
+      // ... modify request
+  }
+
+  return s.ClientStream.SendMsg(msg)
+}
+```
+
+Client - Unary interceptor, modify response message
+
+```go
+func MyUnaryClientInterceptor() grpc.UnaryClientInterceptor{
+  return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker,
+              opts ...grpc.CallOption) error {
+    
+    err := invoker(ctx, method, req, reply, cc, opts...)
+    if err != nil{
+      return err
+    }
+
+    swtich response := reply.(type) {
+      case *MyResponseMessage:
+        // ... modify response
+    }
+
+    return err
+  }
+}
+```
+
+Client - Stream interceptor, modify response message
+
+```go
+func (s *InterceptedClientStream) recvMsg(msg interface{}) error {
+  err := s.ClientStream.RecvMsg(msg)
+  if err != nil {
+    return err
+  }
+
+  switch response := msg.(type) {
+    case *MyResponseMessage:
+      // ... modify response
+  }
+  return nil
+}
+```
+
+
+Client - Unary interceptor, modify request metadata
+
+```go
+func MyUnaryClientInterceptor() grpc.UnaryClientInterceptor {
+  return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker,
+              opts ...grpc.CallOption) error {
+    md, ok := metadata.FromOutgoingContext(ctx)
+    if !ok{
+      md = metadata.New(nil)
+    }
+
+    md.Append("keyToAdd", "valueToAdd")
+    // Add new metadata can also use this
+    metadata.AppendToOutgoingContext(ctx, "keyToAdd", )
+
+  }
+}
+```
