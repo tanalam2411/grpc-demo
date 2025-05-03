@@ -7,11 +7,13 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/tanalam2411/grpc-demo/internal/interceptor"
+
 	"github.com/tanalam2411/grpc-demo/internal/adapter/bank"
 	"github.com/tanalam2411/grpc-demo/internal/adapter/hello"
 	"github.com/tanalam2411/grpc-demo/internal/adapter/resiliency"
 	dbank "github.com/tanalam2411/grpc-demo/internal/application/domain/bank"
-	dresl "github.com/tanalam2411/grpc-demo/internal/application/domain/resiliency"
+	dresl "github.com/tanalam2411/grpc-demo/internal/application/domain/resiliency"  
 	resl_proto "github.com/tanalam2411/grpc-demo/protogen/go/resiliency"
 
 	// grpcr "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/retry"
@@ -71,6 +73,22 @@ func main() {
 
 	// opts = append(opts, grpc.WithDisableRetry())
 
+	// opts = append(opts, 
+	// 	grpc.WithChainUnaryInterceptor(
+	// 		interceptor.LogUnaryClientInterceptor(),
+	// 		interceptor.BasicUnaryClientInterceptor(),
+	// 		interceptor.TimeoutUnaryClientInterceptor(15*time.Second),
+	// 	),
+	// )
+
+	opts = append(opts, 
+		grpc.WithChainStreamInterceptor(
+			interceptor.LogStreamClientInterceptor(),
+			interceptor.BasicClientStreamInterceptor(),
+			interceptor.TimeoutStreamClientInterceptor(15*time.Second),
+		),
+	)
+
 	conn, err := grpc.Dial("localhost:9090", opts...)
 
 	if err != nil {
@@ -128,10 +146,10 @@ func main() {
 	// 	time.Sleep(3*time.Second)
 	// }
 
-	// runUnaryResiliencyWithMetadata(resiliencyAdapter, 0, 1, []uint32{dresl.OK})
-	// runServerStreamingResiliencyWithMetadata(resiliencyAdapter, 0, 1, []uint32{dresl.OK})
+	// runUnaryResiliencyWithMetadata(resiliencyAdapter, 6, 10, []uint32{dresl.OK})
+	runServerStreamingResiliencyWithMetadata(resiliencyAdapter, 1, 3, []uint32{dresl.OK})
 	// runClientStreamingResiliencyWithMetadata(resiliencyAdapter, 0, 1, []uint32{dresl.OK}, 10)
-	runBiDirectionalResiliencyWithMetadata(resiliencyAdapter, 0, 1, []uint32{dresl.OK}, 10)
+	// runBiDirectionalResiliencyWithMetadata(resiliencyAdapter, 0, 1, []uint32{dresl.OK}, 10)
 
 
 }
